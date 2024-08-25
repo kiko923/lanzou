@@ -1,15 +1,17 @@
 <?php
 /**
  * @package Lanzou
- * @author Filmy,hanximeng
- * @version 1.2.96
- * @Date 2024-01-12
- * @link https://hanximeng.com
+ * @author yionchi
+ * @version 2.0.0
+ * @Date 2024-08-26
+ * @link https://yionchi.com
  */
 header('Access-Control-Allow-Origin:*');
 header('Content-Type:application/json; charset=utf-8');
 //默认UA
 $UserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.121 Safari/537.36';
+//IOS UA
+$UserAgentIOS = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1';
 $url = isset($_GET['url']) ? $_GET['url'] : "";
 $pwd = isset($_GET['pwd']) ? $_GET['pwd'] : "";
 $type = isset($_GET['type']) ? $_GET['type'] : "";
@@ -27,6 +29,17 @@ if (empty($url)) {
 //一个简单的链接处理
 $url='https://www.lanzoup.com/'.explode('.com/',$url)['1'];
 $softInfo = MloocCurlGet($url);
+// echo $softInfo;
+// exit;
+if (strstr($softInfo, "手机Safari可在线安装") != false) {
+    $fileType = 'ipa';
+    $UA = $UserAgentIOS;
+}else{
+    $fileType = 'normal';
+    $UA = $UserAgent;
+}
+//echo $UA;
+
 //判断文件链接是否失效
 if (strstr($softInfo, "文件取消分享了") != false) {
 	die(
@@ -92,6 +105,14 @@ if(strstr($softInfo, "function down_p(){") != false) {
 }
 //其他情况下的信息输出
 $softInfo = json_decode($softInfo, true);
+
+// echo json_encode($softInfo);
+// exit;
+
+
+
+
+
 if ($softInfo['zt'] != 1) {
 	die(
 	    json_encode(
@@ -105,13 +126,24 @@ if ($softInfo['zt'] != 1) {
 //拼接链接
 $downUrl1 = $softInfo['dom'] . '/file/' . $softInfo['url'];
 //解析最终直链地址
-$downUrl2 = MloocCurlHead($downUrl1,"https://developer.lanzoug.com",$UserAgent,"down_ip=1; expires=Sat, 16-Nov-2019 11:42:54 GMT; path=/; domain=.baidupan.com");
+$downUrl2 = MloocCurlHead($downUrl1,"https://developer.lanzoug.com",$UA,"down_ip=1; expires=Sat, 16-Nov-2019 11:42:54 GMT; path=/; domain=.baidupan.com");
+//echo $downUrl2;
 //判断最终链接是否获取成功，如未成功则使用原链接
 if($downUrl2 == "") {
 	$downUrl = $downUrl1;
 } else {
 	$downUrl = $downUrl2;
 }
+
+
+
+if($fileType=='ipa'){
+    $downUrl = $downUrl1;
+    $ipaDownUrl = $downUrl2;
+}
+//  echo $ipaDownUrl;
+//  echo $downUrl;
+// exit;
 //判断是否是直接下载
 if ($type != "down") {
 	die(
@@ -119,9 +151,11 @@ if ($type != "down") {
 	        array(
 	            'code' => 200,
 	            'msg' => '解析成功',
+	            'fileType'=>$fileType,
 	            'name' => isset($softName[1]) ? $softName[1] : "",
 	            'filesize' => isset($softFilesize[1]) ? $softFilesize[1] : "",
-	            'downUrl' => $downUrl
+	            'downUrl' => $downUrl,
+	            'ipaDownUrl'=> $ipaDownUrl,
 	        )
 	        , JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
 	    );
@@ -213,5 +247,28 @@ function Rand_IP() {
 	$randarr= mt_rand(0,count($arr_1)-1);
 	$ip1id = $arr_1[$randarr];
 	return $ip1id.".".$ip2id.".".$ip3id.".".$ip4id;
+}
+
+function get302($url) {
+    $ch = curl_init($url);
+    
+    // 设置 curl 选项
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); // 自动跟随重定向
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // 返回内容而不是直接输出
+    curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1'); // 包含 header 信息
+    curl_setopt($ch, CURLOPT_HEADER, true); // 包含 header 信息
+    curl_setopt($ch, CURLOPT_NOBODY, true); // 仅获取 header 信息
+    $response = curl_exec($ch);
+    curl_close($ch);
+    // 获取最终的 URL
+    
+
+
+// if (preg_match('/^Location: (.*)$/mi', $response, $matches)) {
+//     $redirectURL = trim($matches[1]);
+// }
+
+    
+    return $response;
 }
 ?>
