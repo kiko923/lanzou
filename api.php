@@ -2,18 +2,18 @@
 /**
  * @package Lanzou
  * @author yionchi
- * @version 2.0.0
- * @Date 2024-08-26
+ * @version 2.1.0
+ * @Date 2025-06-04
  * @link https://yionchi.com
  */
-header('Access-Control-Allow-Origin:*');
+// header('Access-Control-Allow-Origin:*');
 header('Content-Type:application/json; charset=utf-8');
 //默认UA
 $UserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.121 Safari/537.36';
 //IOS UA
 $UserAgentIOS = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1';
-$url = isset($_GET['url']) ? $_GET['url'] : "";
-$pwd = isset($_GET['pwd']) ? $_GET['pwd'] : "";
+$url = isset($_REQUEST['url']) ? $_REQUEST['url'] : "";
+$pwd = isset($_REQUEST['pwd']) ? $_REQUEST['pwd'] : "";
 $type = isset($_GET['type']) ? $_GET['type'] : "";
 //判断传入链接参数是否为空
 if (empty($url)) {
@@ -79,12 +79,15 @@ if(strstr($softInfo, "function down_p(){") != false) {
 				);
 	}
 	preg_match_all("~skdklds = '(.*?)';~", $softInfo, $segment);
+		preg_match_all("~'sign':'(.*?)',~", $softInfo, $segment);
+	preg_match_all("~ajaxdata = '(.*?)'~", $softInfo, $signs);
+	preg_match_all("/ajaxm\.php\?file=(\d+)/", $softInfo, $ajaxm);
 	$post_data = array(
 			"action" => 'downprocess',
 			"sign" => $segment[1][0],
 			"p" => $pwd
 		);
-	$softInfo = MloocCurlPost($post_data, "https://www.lanzoup.com/ajaxm.php", $url);
+		$softInfo = MloocCurlPost($post_data, "https://www.lanzoup.com/".$ajaxm[0][0], $url);
 	$softName[1] = json_decode($softInfo,JSON_UNESCAPED_UNICODE)['inf'];
 } else {
 	//不带密码的链接处理
@@ -95,13 +98,20 @@ if(strstr($softInfo, "function down_p(){") != false) {
 	}
 	$ifurl = "https://www.lanzoup.com/" . $link[1];
 	$softInfo = MloocCurlGet($ifurl);
-	preg_match_all("~'sign':'(.*?)'~", $softInfo, $segment);
+// 	preg_match_all("~'sign':'(.*?)'~", $softInfo, $segment);
+	preg_match_all("~wp_sign = '(.*?)'~", $softInfo, $segment);
+	preg_match_all("~ajaxdata = '(.*?)'~", $softInfo, $signs);
+	preg_match_all("/ajaxm\.php\?file=(\d+)/", $softInfo, $ajaxm);
 	$post_data = array(
-			"action" => 'downprocess',
-			"signs"=>"?ctdf",
-			"sign" => $segment[1][0],
-		);
-	$softInfo = MloocCurlPost($post_data, "https://www.lanzoup.com/ajaxm.php", $ifurl);
+		"action" => "downprocess",
+		"websignkey" => $signs[1][0],
+		"signs" => $signs[1][0],
+		"sign" => $segment[1][0],
+		"websign" => '',
+		"kd" => 1,
+		"ves" => 1
+	);
+	$softInfo = MloocCurlPost($post_data, "https://www.lanzoup.com/".$ajaxm[0][1], $ifurl);
 }
 //其他情况下的信息输出
 $softInfo = json_decode($softInfo, true);
@@ -129,12 +139,19 @@ $downUrl1 = $softInfo['dom'] . '/file/' . $softInfo['url'];
 $downUrl2 = MloocCurlHead($downUrl1,"https://developer.lanzoug.com",$UA,"down_ip=1; expires=Sat, 16-Nov-2019 11:42:54 GMT; path=/; domain=.baidupan.com");
 //echo $downUrl2;
 //判断最终链接是否获取成功，如未成功则使用原链接
-if($downUrl2 == "") {
+if(strpos($downUrl2,"http") === false) {
 	$downUrl = $downUrl1;
 } else {
-	$downUrl = $downUrl2;
+	//2025-03-17 新增后缀自定义功能 https://github.com/hanximeng/LanzouAPI/issues/26
+	if(!empty($_REQUEST['n'])){
+	    preg_match_all("~(.*?)\?fn=(.*?)\\.~", $downUrl2, $rename);
+	    $downUrl = $rename['0']['0'].$_REQUEST['n'];
+	}else{
+	    $downUrl = $downUrl2;
+	}
 }
-
+//2024-12-03 修复pid参数可能导致的服务器ip地址泄露
+$downUrl=preg_replace('/pid=(.*?.)&/', '', $downUrl);
 
 
 if($fileType=='ipa'){
