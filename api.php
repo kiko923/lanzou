@@ -2,11 +2,11 @@
 /**
  * @package Lanzou
  * @author yionchi
- * @version 2.1.0
- * @Date 2025-06-04
+ * @version 2.1.1
+ * @Date 2025-06-09
  * @link https://yionchi.com
  */
-// header('Access-Control-Allow-Origin:*');
+header('Access-Control-Allow-Origin:*');
 header('Content-Type:application/json; charset=utf-8');
 //默认UA
 $UserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.121 Safari/537.36';
@@ -14,7 +14,7 @@ $UserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 $UserAgentIOS = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1';
 $url = isset($_REQUEST['url']) ? $_REQUEST['url'] : "";
 $pwd = isset($_REQUEST['pwd']) ? $_REQUEST['pwd'] : "";
-$type = isset($_GET['type']) ? $_GET['type'] : "";
+$type = isset($_REQUEST['type']) ? $_REQUEST['type'] : "";
 //判断传入链接参数是否为空
 if (empty($url)) {
 	die(
@@ -38,7 +38,8 @@ if (strstr($softInfo, "手机Safari可在线安装") != false) {
     $fileType = 'normal';
     $UA = $UserAgent;
 }
-//echo $UA;
+// echo $UA;
+// $UA = $UserAgent;
 
 //判断文件链接是否失效
 if (strstr($softInfo, "文件取消分享了") != false) {
@@ -78,14 +79,14 @@ if(strstr($softInfo, "function down_p(){") != false) {
 					, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
 				);
 	}
-	preg_match_all("~skdklds = '(.*?)';~", $softInfo, $segment);
-		preg_match_all("~'sign':'(.*?)',~", $softInfo, $segment);
+	preg_match_all("~'sign':'(.*?)',~", $softInfo, $segment);
 	preg_match_all("~ajaxdata = '(.*?)'~", $softInfo, $signs);
 	preg_match_all("/ajaxm\.php\?file=(\d+)/", $softInfo, $ajaxm);
 	$post_data = array(
 			"action" => 'downprocess',
-			"sign" => $segment[1][0],
-			"p" => $pwd
+			"sign" => $segment[1][1],
+			"p" => $pwd,
+		    "kd" => 1
 		);
 		$softInfo = MloocCurlPost($post_data, "https://www.lanzoup.com/".$ajaxm[0][0], $url);
 	$softName[1] = json_decode($softInfo,JSON_UNESCAPED_UNICODE)['inf'];
@@ -119,10 +120,6 @@ $softInfo = json_decode($softInfo, true);
 // echo json_encode($softInfo);
 // exit;
 
-
-
-
-
 if ($softInfo['zt'] != 1) {
 	die(
 	    json_encode(
@@ -142,7 +139,7 @@ $downUrl2 = MloocCurlHead($downUrl1,"https://developer.lanzoug.com",$UA,"down_ip
 if(strpos($downUrl2,"http") === false) {
 	$downUrl = $downUrl1;
 } else {
-	//2025-03-17 新增后缀自定义功能 https://github.com/hanximeng/LanzouAPI/issues/26
+	//2025-03-17 新增后缀自定义功能
 	if(!empty($_REQUEST['n'])){
 	    preg_match_all("~(.*?)\?fn=(.*?)\\.~", $downUrl2, $rename);
 	    $downUrl = $rename['0']['0'].$_REQUEST['n'];
@@ -153,8 +150,8 @@ if(strpos($downUrl2,"http") === false) {
 //2024-12-03 修复pid参数可能导致的服务器ip地址泄露
 $downUrl=preg_replace('/pid=(.*?.)&/', '', $downUrl);
 
-
-if($fileType=='ipa'){
+$ipaDownUrl = NULL;
+if($fileType = 'ipa'){
     $downUrl = $downUrl1;
     $ipaDownUrl = $downUrl2;
 }
